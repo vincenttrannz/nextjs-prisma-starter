@@ -1,0 +1,21 @@
+FROM node:20-slim AS base
+
+# Set environment variables
+ENV NODE_ENV=${NODE_ENV} \
+    APP_HOME=/app \
+    NEXT_TELEMETRY_DISABLED=1
+
+WORKDIR ${APP_HOME}
+
+# Copy only what's needed for Prisma
+COPY package*.json ./
+COPY prisma ./prisma
+
+# Install only the dependencies required for Prisma
+RUN npm install --no-save @prisma/client prisma
+
+# Expose Prisma Studio port
+EXPOSE 5555
+
+# Command to start Prisma Studio
+CMD ["npx", "prisma", "studio", "--port", "5555", "--host", "0.0.0.0"]

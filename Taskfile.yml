@@ -1,0 +1,63 @@
+version: 3
+
+tasks:
+  env:
+    desc: "Setup .env file for development"
+    cmd: ansible-playbook -i ./provisioning/inventory.yml ./provisioning/dev_scaffold.yml -t dev_scaffold --vault-password=./provisioning/vault_passwords/development
+
+  encrypt-vault:
+    desc: "Encrypt the Ansible vault file for a specific environment"
+    silent: true
+    cmds: 
+      - | 
+        if [ -z "{{.CLI_ARGS}}" ]; then
+          echo "Please provide an environment: development, staging or production. Eg: task encrypt-vault -- development"
+          exit 1
+        fi
+      - |
+        ansible-vault encrypt ./provisioning/group_vars/{{.CLI_ARGS}}/vault.yml --vault-password=./provisioning/vault_passwords/{{.CLI_ARGS}}
+  
+  decrypt-vault:
+    desc: "Decrypt the Ansible vault file for a specific environment"
+    silent: true
+    cmds: 
+      - | 
+        if [ -z "{{.CLI_ARGS}}" ]; then
+          echo "Please provide an environment: development, staging or production. Eg: task decrypt-vault -- development"
+          exit 1
+        fi
+      - |
+        ansible-vault decrypt ./provisioning/group_vars/{{.CLI_ARGS}}/vault.yml --vault-password=./provisioning/vault_passwords/{{.CLI_ARGS}}
+
+  docker-build:
+    desc: "Build the Docker container with additional args"
+    silent: true
+    cmds:
+      - |
+        docker compose -f ./docker-compose.yml \
+          build \
+          --build-arg UID="$id" \
+          --build-arg GID="$gid" \
+          --build-arg UNAME="$uname" \
+          {{.CLI_ARGS}}
+
+  docker-*:
+    desc: "Manage the Docker container with additional args"
+    vars:
+      CMD: '{{index .MATCH 0}}'
+    silent: true
+    cmds:
+      - docker compose -f ./docker-compose.yml {{.CMD}} {{.CLI_ARGS}}
+
+  app-*:
+    desc: "Manage the App container"
+    vars:
+      CMD: '{{index .MATCH 0}}'
+    silent: true
+    cmds:
+      - |
+        if [ "{{.CMD}}" = "dev" ]; then
+          docker exec -it nextjs-prisma-starter_app sh -c "npm run dev:docker"
+        else
+          docker exec -it nextjs-prisma-starter_app sh -c "npm run {{.CMD}}"
+        fi

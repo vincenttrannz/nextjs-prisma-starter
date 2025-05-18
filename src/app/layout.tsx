@@ -20,10 +20,9 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className + "min-h-screen bg-zinc-950"}>
         <Providers>
-      <AppBar/>
-          
+          <AppBar/>
           {children}
-          </Providers>
+        </Providers>
       </body>
     </html>
   );

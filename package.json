@@ -3,9 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "dev:docker": "npm run prisma:docker && next dev",
+    "dev": "next dev -p 3001 -H 0.0.0.0",
+    "dev:docker": "npm run prisma:docker && next dev -p 3001 -H 0.0.0.0",
     "prisma:docker": "npx prisma migrate dev",
+    "prisma:migrate": "npx prisma migrate dev --skip-seed",
+    "prisma:studio": "npx prisma studio -p 5555",
+    "prisma:push": "npx prisma db push",
+    "prisma:seed": "npx prisma db seed",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"

@@ -1,11 +1,60 @@
 services:
+  nginx:
+    image: nginx:latest
+    restart: unless-stopped
+    container_name: ${PROJECT_NAME}_nginx
+    ports:
+      - 3000:80
+    volumes:
+      - ./public:/app/public
+      - ./conf/${ENVIRONMENT}/nginx/:/etc/nginx:ro
+      - ./logs/nginx/:/var/log/nginx
+      - /etc/localtime:/etc/localtime:ro
+    env_file:
+      - .env
+    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=web"
+      # Main application
+      - "traefik.http.routers.nginx_nextjs.service=nginx_nextjs"
+      - "traefik.http.routers.nginx_nextjs.rule=Host(`${DOMAIN_NAME}`)"
+      - "traefik.http.services.nginx_nextjs.loadbalancer.server.port=80"
+      - "traefik.http.routers.nginx_nextjs.entrypoints=https"
+      - "traefik.http.routers.nginx_nextjs.tls=true"
+      - "traefik.http.routers.nginx_nextjs.tls.certresolver=myresolver"
+      # Prisma subdomain
+      - "traefik.http.routers.nginx_prisma.service=nginx_prisma"
+      - "traefik.http.routers.nginx_prisma.rule=Host(`prisma.${DOMAIN_NAME}`)"
+      - "traefik.http.services.nginx_prisma.loadbalancer.server.port=80"
+      - "traefik.http.routers.nginx_prisma.entrypoints=https"
+      - "traefik.http.routers.nginx_prisma.tls=true"
+      - "traefik.http.routers.nginx_prisma.tls.certresolver=myresolver"
+    networks:
+      - internal
+      - web
+    depends_on:
+      - app
   app:
-    build: .
-    container_name: next-starter-docker
+    container_name: ${PROJECT_NAME}_app
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile
+      target: ${ENVIRONMENT}
+      args:
+        - NODE_ENV=${ENVIRONMENT}
     env_file: 
       - .env
     ports:
-      - '3000:3000'
+      - '3001:3001'
+      - '5555:5555'
+    volumes:
+      - ./public:/app/public
+      - ./prisma:/app/prisma
+    command: tail -f /dev/null
+    networks:
+      - internal
     depends_on:
       db:
         condition: service_healthy
@@ -20,22 +69,30 @@ services:
           path: package.json
 
   db:
-    image: postgres:9.6
-    container_name: db
-    restart: always
+    image: postgres:16.9
+    container_name: ${PROJECT_NAME}_postgres
+    platform: linux/amd64
+    restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: db
     ports:
       - 5432:5432
+    networks:
+      - internal
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: [ 'CMD-SHELL', 'pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}' ]
+      test: [ 'CMD-SHELL', "sh -c 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}'" ]
       interval: 10s
       timeout: 5s
       retries: 5
 
 volumes:
-  postgres-data: 
+  postgres-data:
+
+networks:
+  internal:
+  web:
+    external: true

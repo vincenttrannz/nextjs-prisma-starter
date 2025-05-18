@@ -17,5 +17,13 @@ model User {
   id           String @id @default(uuid())
   username     String
   email        String @unique 
+  phone        String?
   passwordHash String
+}
+
+model Region {
+  id           String @id @default(uuid())
+  region       String
+  city         String
+  address      String
 }
